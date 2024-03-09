@@ -10,7 +10,7 @@ Here is a simple status:
 | mirror | RegexReplicationPolicy | **final-code** | It is a replication policy for MM2 ( Mirror Maker 2 or MirrorMaker2 ) which allow you to transform the topic name on replication side as you want by regex with extraction (if topic is named toto-tata , a regex like /toto-(.*)/ and a replacement by titi-$1 will result to titi-tata as name of replicated topic). |
 | smt |  AddUuid | **final-code** | It is a SMT for Kafka Connect (also known as a Simple Message Transform or SimpleMessageTranform) which has for only goal to add a header with a user-defined fieldname and a random UUID. |
 | smt | AvroToJson | *work-in-test* | As the name of the module is saying : the goal is to convert a AVRO message formatted to a JSON string according to Schema stored in a registry. The code was AI helped and never tested (and will probably never) ! |
-| smt | JsonToKeyHeader | **final-code** | It is a SMT for Kafka Connect (also known as a Simple Message Transform or SimpleMessageTranform) which has for only goal to extract a subContent of a JSON node contained in a key or value record of Kafka message , to add it into a (key,value) header, with key equals to the JSON path of content, and an optionnal prefix if needed. |
+| smt | JsonKeyToHeader | **final-code** | It is a SMT for Kafka Connect (also known as a Simple Message Transform or SimpleMessageTranform) which has for only goal to extract a subContent of a JSON node contained in a key or value record of Kafka message , to add it into a (key,value) header, with key equals to the JSON path of content, and an optionnal prefix if needed. |
 
 ## How-to use
 It is very simple:
