@@ -11,6 +11,7 @@ Here is a simple status:
 | smt |  AddUuid | **final-code** | It is a SMT for Kafka Connect (also known as a Simple Message Transform or SimpleMessageTranform) which has for only goal to add a header with a user-defined fieldname and a random UUID. |
 | smt | AvroToJson | *work-in-test* | As the name of the module is saying : the goal is to convert a AVRO message formatted to a JSON string according to Schema stored in a registry. The code was AI helped and never tested (and will probably never) ! |
 | smt | JsonKeyToHeader | **final-code** | It is a SMT for Kafka Connect (also known as a Simple Message Transform or SimpleMessageTranform) which has for only goal to extract a subContent of a JSON node contained in a key or value record of Kafka message , to add it into a (key,value) header, with key equals to the JSON path of content, and an optionnal prefix if needed. |
+| broker | GroupsKafkaPrincipal | **RC-code** | It is a combination of GroupsKafkaPrincipal and a GroupsKafkaPrincipalBuilder to be used in the property file of a broker in this way: principal.builder.class=net.ulukai.kafka.broker.GroupsKafkaPrincipalBuilder . This allow you to use OU of DN from certificate file to define a list of group for the user. The main goal is to be able to use it as principal "Group:" in ACL definition. |
 
 ## How-to use
 It is very simple:
