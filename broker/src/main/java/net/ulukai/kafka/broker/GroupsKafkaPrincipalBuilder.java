@@ -46,6 +46,10 @@ public class GroupsKafkaPrincipalBuilder implements KafkaPrincipalBuilder, Kafka
   private String certificateUserField = "CN";
   private String certificateGroupField = "OU";
 
+  static public final GroupsKafkaPrincipal buildPrincipal(String type, String id) {
+	  return new GroupsKafkaPrincipal(type, id);
+  }
+  
   @Override
   public KafkaPrincipal build(AuthenticationContext context) {
     // Create a base principal by using the DefaultPrincipalBuilder
@@ -55,62 +59,67 @@ public class GroupsKafkaPrincipalBuilder implements KafkaPrincipalBuilder, Kafka
     if (context instanceof PlaintextAuthenticationContext) {
     	// No security at all, nor user declaration
     	// use default anonymous
-    	logger.debug("called with Plaintext context, so anonymous is used");
+    	logger.error("called with Plaintext context, so anonymous is used");
     } else if (context instanceof SslAuthenticationContext) {
     	logger.debug(this.getClass().getName() + " received SSL context - " + ((SslAuthenticationContext)context).toString());
     	SSLSession sslSession = ((SslAuthenticationContext)context).session();
     	try {
         	Principal principal = sslSession.getPeerPrincipal();
             if (!(principal instanceof X500Principal) || principal == KafkaPrincipal.ANONYMOUS) {
+            	logger.error("SSL principal is not X500 nor anonymous, so returning anonymous... [" + principal.getClass().toString()+"]");
             } else {
             	String dn = principal.getName();
+            	logger.debug("01 - Building principal SSLContext for: ["+dn+"]");
             	String userName = getUserFromCertificate(dn);
             	basePrincipal = new GroupsKafkaPrincipal(KafkaPrincipal.USER_TYPE, userName, getGroupsFromDN(dn));
             }        
 		} catch (SSLPeerUnverifiedException e) {
-			// TODO Auto-generated catch block
 			logger.error(this.getClass().getName() + " failed to use SSL context, fallback to anonymous");
 			e.printStackTrace();
         } 
     } else {
     	logger.warn("Authentication Context [" + context.toString() + "] not supported for " + this.getClass().toString());
     }
+	logger.debug("Building principal result : ["+basePrincipal.toStringFull()+"]");
     return basePrincipal;
   }
 
   private List<KafkaPrincipal> getGroupsFromDN(String userName) {
-    List<KafkaPrincipal> groupPrincipals = new ArrayList<KafkaPrincipal>();
-    // Add user principal to list as well to make later matching easier
-      groupPrincipals.add(new KafkaPrincipal(KafkaPrincipal.USER_TYPE, userName));
-
-      logger.debug("Resolving groups for user [" + userName + "]");
-      List<String> groups = groupsFromCN(userName);
-      StringBuilder sb = new StringBuilder();
-      for (String group : groups) {
-          sb.append(group);
-          sb.append(",");
-      }
-      sb.deleteCharAt(sb.length()-1);
-      logger.warn("Got list of groups for user [" + userName + "] : [" + sb.toString() + "]");
-      for (String group : groups) {
-        groupPrincipals.add(new KafkaPrincipal("Group", group));
-      }
-    return groupPrincipals;
+	  List<KafkaPrincipal> groupPrincipals = new ArrayList<KafkaPrincipal>();
+	  // Add user principal to list as well to make later matching easier
+	  groupPrincipals.add(new KafkaPrincipal(KafkaPrincipal.USER_TYPE, userName));
+	
+	  logger.debug("Resolving groups for user [" + userName + "]");
+	  List<String> groups = groupsFromCN(userName);
+	  StringBuilder sb = new StringBuilder();
+	  for (String group : groups) {
+	      sb.append(group);
+	      sb.append(",");
+	  }
+	  sb.deleteCharAt(sb.length()-1);
+	  for (String group : groups) {
+	    groupPrincipals.add(new KafkaPrincipal("Group", group));
+	  }
+	  logger.debug("03 - Got list of groups for user [" + userName + "] strings : [" + sb.toString() + "]");
+	  logger.debug("03 - Got list of groups for user [" + userName + "] principals: [" + groupPrincipals.toString() + "]");
+	  return groupPrincipals;
   }
 
   private String getUserFromCertificate(String certificateString) {
 	    // For a SslContext the user will look like CN=username;OU=...;DN=...
+	    String result = "failed to convert getUserFromCertificate from certificateString";
 	    try {
 	      LdapName certificateDetails = new LdapName(certificateString);
 	      for (Rdn currentRdn : certificateDetails.getRdns()) {
 	        if (currentRdn.getType().equalsIgnoreCase(certificateUserField)) {
-	          certificateString = currentRdn.getValue().toString();
+	          result = currentRdn.getValue().toString();
 	        }
 	      }
 	    } catch (InvalidNameException e) {
 	      logger.warn("Error extracting username from String " + certificateString + ": " + e.getMessage());
 	    }
-	    return certificateString;
+	    logger.debug("02 - Convert Cert ["+certificateString+"] to user ["+result+"]");
+	    return result;
 	  }
 
   private List<String> groupsFromCN(String certificateString) {
@@ -132,7 +141,7 @@ public class GroupsKafkaPrincipalBuilder implements KafkaPrincipalBuilder, Kafka
   @Override
   public void configure(Map<String, ?> configs) {
 	 this.logger = LoggerFactory.getLogger(GroupsKafkaPrincipalBuilder.class.getSimpleName());
-	 this.logger.info("Configuration called");
+	 this.logger.debug("Configuration called");
 	 
     // Check if options for the principalbuilder were specified in the broker config
     if (configs.containsKey("principal.builder.options.groupKey")) {
@@ -162,19 +171,20 @@ public class GroupsKafkaPrincipalBuilder implements KafkaPrincipalBuilder, Kafka
 	@Override
 	public KafkaPrincipal deserialize(byte[] bytes) throws SerializationException {
 		this.logger.debug("deserializer called");
-		KafkaPrincipal principal = null;
+		GroupsKafkaPrincipal principal = null;
 		try {
 			this.logger.info("Deserialize source [" + new String(bytes) + "]");
 			ObjectMapper objectMapper = new ObjectMapper();
 			JsonNode jsonNode = objectMapper.readTree(new String(bytes));
-		      String mainType = jsonNode.path("main.type").asText();
-		      String mainName = jsonNode.path("main.name").asText();
+		      String mainType = jsonNode.at("/main/type").asText();
+		      String mainName = jsonNode.at("/main/name").asText();
 		      List<KafkaPrincipal> allKP = new ArrayList<KafkaPrincipal>();
 		      ArrayNode an = (ArrayNode)jsonNode.get("all");
 		      for (JsonNode jn : an) {
 		    	  allKP.add(new KafkaPrincipal(jn.get("type").asText(), jn.get("name").asText()));
 		      }
 		      principal = new GroupsKafkaPrincipal(mainType, mainName, allKP);
+		      logger.info(principal.toStringFull());
 		} catch (JsonMappingException e) {
 			logger.error("failed to deserialize");
 			e.printStackTrace();
