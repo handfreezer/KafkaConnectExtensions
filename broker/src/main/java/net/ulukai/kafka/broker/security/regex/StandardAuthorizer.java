@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package net.ulukai.kafka.broker.security.group;
+package net.ulukai.kafka.broker.security.regex;
 
 import org.apache.kafka.common.Endpoint;
 import org.apache.kafka.common.Uuid;
@@ -24,6 +24,9 @@ import org.apache.kafka.common.acl.AclBindingFilter;
 import org.apache.kafka.common.errors.NotControllerException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.utils.SecurityUtils;
+import org.apache.kafka.metadata.authorizer.AclMutator;
+import org.apache.kafka.metadata.authorizer.ClusterMetadataAuthorizer;
+import org.apache.kafka.metadata.authorizer.StandardAcl;
 import org.apache.kafka.server.authorizer.Action;
 import org.apache.kafka.server.authorizer.AuthorizableRequestContext;
 import org.apache.kafka.server.authorizer.AuthorizationResult;
@@ -165,7 +168,7 @@ public class StandardAuthorizer implements ClusterMetadataAuthorizer {
 
     @Override
     public void configure(Map<String, ?> configs) {
-    	Set<String> superUsers = getConfiguredSuperUsers(configs);
+        Set<String> superUsers = getConfiguredSuperUsers(configs);
         AuthorizationResult defaultResult = getDefaultResult(configs);
         int nodeId;
         try {

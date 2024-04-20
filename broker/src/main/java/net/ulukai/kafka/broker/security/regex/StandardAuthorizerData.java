@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package net.ulukai.kafka.broker.security.group;
+package net.ulukai.kafka.broker.security.regex;
 
 import org.apache.kafka.common.Uuid;
 import org.apache.kafka.common.acl.AclBinding;
@@ -30,20 +30,21 @@ import org.apache.kafka.common.security.auth.KafkaPrincipal;
 import org.apache.kafka.common.utils.LogContext;
 import org.apache.kafka.common.utils.SecurityUtils;
 import org.apache.kafka.common.utils.Utils;
+import org.apache.kafka.metadata.authorizer.AclMutator;
+import org.apache.kafka.metadata.authorizer.StandardAcl;
 import org.apache.kafka.server.authorizer.Action;
 import org.apache.kafka.server.authorizer.AuthorizableRequestContext;
 import org.apache.kafka.server.authorizer.AuthorizationResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.ulukai.kafka.broker.GroupsKafkaPrincipal;
-import net.ulukai.kafka.broker.GroupsKafkaPrincipalBuilder;
-
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.NavigableSet;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.apache.kafka.common.acl.AclOperation.ALL;
 import static org.apache.kafka.common.acl.AclOperation.ALTER;
@@ -71,10 +72,15 @@ public class StandardAuthorizerData {
     public static final String WILDCARD = "*";
 
     /**
+     * The principal type string used in ACLs that match a name by regex.
+     */
+    public static final String REGEX_TYPE_PRINCIPAL = "Regex";
+
+    /**
      * The principal entry used in ACLs that match any principal.
      */
     public static final String WILDCARD_PRINCIPAL = "User:*";
-    public static final KafkaPrincipal WILDCARD_KAFKA_PRINCIPAL = GroupsKafkaPrincipalBuilder.buildPrincipal(KafkaPrincipal.USER_TYPE, "*");
+    public static final KafkaPrincipal WILDCARD_KAFKA_PRINCIPAL = new KafkaPrincipal(KafkaPrincipal.USER_TYPE, "*");
 
     /**
      * The logger to use.
@@ -238,10 +244,6 @@ public class StandardAuthorizerData {
             throw new IllegalArgumentException("Only literal resources are supported. Got: " + action.resourcePattern().patternType());
         }
         KafkaPrincipal principal = baseKafkaPrincipal(requestContext);
-        if ( ! principal.getClass().equals(GroupsKafkaPrincipal.class) )
-        	log.info("Authorize request, basePrincipal [{}]", principal.toString());
-        else
-        	log.info("Authorize request, basePrincipal [{}] - full [{}]", principal.toString(), ((GroupsKafkaPrincipal)principal).toStringFull());
         final MatchingRule rule;
 
         // Superusers are authorized to do anything.
@@ -431,7 +433,6 @@ public class StandardAuthorizerData {
                 continue;
             }
             matchingRuleBuilder.hasResourceAcls = true;
-        	log.info("Authorize : find result : machingPrincipals[{}] et acl.kafkaPrincipal[{}]", matchingPrincipals, acl.kafkaPrincipal());
             AuthorizationResult result = findResult(action, matchingPrincipals, host, acl);
             if (ALLOWED == result) {
                 matchingRuleBuilder.allowAcl = acl;
@@ -467,16 +468,16 @@ public class StandardAuthorizerData {
 
     static KafkaPrincipal baseKafkaPrincipal(AuthorizableRequestContext context) {
         KafkaPrincipal sessionPrincipal = context.principal();
-        return sessionPrincipal.getClass().equals(GroupsKafkaPrincipal.class)
+        return sessionPrincipal.getClass().equals(KafkaPrincipal.class)
             ? sessionPrincipal
-            : GroupsKafkaPrincipalBuilder.buildPrincipal(sessionPrincipal.getPrincipalType(), sessionPrincipal.getName());
+            : new KafkaPrincipal(sessionPrincipal.getPrincipalType(), sessionPrincipal.getName());
     }
 
     static Set<KafkaPrincipal> matchingPrincipals(AuthorizableRequestContext context) {
         KafkaPrincipal sessionPrincipal = context.principal();
-        KafkaPrincipal basePrincipal = sessionPrincipal.getClass().equals(GroupsKafkaPrincipal.class)
+        KafkaPrincipal basePrincipal = sessionPrincipal.getClass().equals(KafkaPrincipal.class)
             ? sessionPrincipal
-            : GroupsKafkaPrincipalBuilder.buildPrincipal(sessionPrincipal.getPrincipalType(), sessionPrincipal.getName());
+            : new KafkaPrincipal(sessionPrincipal.getPrincipalType(), sessionPrincipal.getName());
         return Utils.mkSet(basePrincipal, WILDCARD_KAFKA_PRINCIPAL);
     }
 
@@ -496,10 +497,40 @@ public class StandardAuthorizerData {
                                           Set<KafkaPrincipal> matchingPrincipals,
                                           String host,
                                           StandardAcl acl) {
-        // Check if the principal matches. If it doesn't, return no result (null).
-        if (!matchingPrincipals.contains(acl.kafkaPrincipal())) {
-            return null;
-        }
+		Logger logger = LoggerFactory.getLogger(StandardAuthorizerData.class);
+		// Check if the principal matches. If it doesn't, return no result (null).
+    	KafkaPrincipal aclPrincipal = acl.kafkaPrincipal();
+    	if (!matchingPrincipals.contains(aclPrincipal)) {
+    		logger.debug("aclPrincipal not contained in matchingPrincipals");
+            //return null;
+    		if ( !aclPrincipal.getPrincipalType().equals(REGEX_TYPE_PRINCIPAL) ) {
+    			logger.error("Authorizer does NOT support principal type [{}]", aclPrincipal.getPrincipalType());
+    		}else {
+    			logger.debug("Authorizer is testing regex [{}]",aclPrincipal.getName());
+    			
+    			boolean findMatch = false;
+    			Pattern regexPattern = Pattern.compile(aclPrincipal.getName());
+    			Matcher regexMatcher = null;
+    			for (KafkaPrincipal mkp : matchingPrincipals) {
+    				logger.debug("Authorizer is regex'ing' matchingPrincipal [{}]", mkp.getName());
+    				regexMatcher = regexPattern.matcher(mkp.getName());
+    				if ( !regexMatcher.find() ) {
+    					logger.debug("Authorizer regex does NOT match");
+    				}else{
+    					logger.debug("Authorizer regex found a match !!!");
+    					findMatch = true;
+    					break;
+    				}
+    			}
+    			if ( ! findMatch ) {
+    				logger.error("Authorizer didn't find a match in ACL [{}] for matchingPrincipal [{}]",
+    						aclPrincipal.toString(),
+    						matchingPrincipals.toString());
+    				return null;
+    			}
+    			logger.debug("Authorizer is happy");
+    		}
+    	}
         // Check if the host matches. If it doesn't, return no result (null).
         if (!acl.host().equals(WILDCARD) && !acl.host().equals(host)) {
             return null;
