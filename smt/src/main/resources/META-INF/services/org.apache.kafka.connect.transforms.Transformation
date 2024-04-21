@@ -1,0 +1,3 @@
+net.ulukai.kafka.connect.smt.AddUuid
+net.ulukai.kafka.connect.smt.AvroToJson
+net.ulukai.kafka.connect.smt.JsonKeyToHeader
