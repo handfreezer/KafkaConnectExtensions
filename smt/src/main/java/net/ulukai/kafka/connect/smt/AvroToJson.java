@@ -22,7 +22,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Map;
 
-public class AvroToJson<R extends ConnectRecord<R>> implements Transformation<R> {
+public abstract class AvroToJson<R extends ConnectRecord<R>> implements Transformation<R> {
 
 	private static final Logger logger = LoggerFactory.getLogger(AvroToJson.class);
 

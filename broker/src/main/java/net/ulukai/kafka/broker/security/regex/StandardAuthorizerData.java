@@ -523,9 +523,7 @@ public class StandardAuthorizerData {
     				}
     			}
     			if ( ! findMatch ) {
-    				logger.error("Authorizer didn't find a match in ACL [{}] for matchingPrincipal [{}]",
-    						aclPrincipal.toString(),
-    						matchingPrincipals.toString());
+    				//logger.debug("Authorizer didn't find a match in ACL [{}] for matchingPrincipal [{}]", aclPrincipal.toString(), matchingPrincipals.toString());
     				return null;
     			}
     			logger.debug("Authorizer is happy");

@@ -1,3 +1,7 @@
 net.ulukai.kafka.connect.smt.AddUuid
-net.ulukai.kafka.connect.smt.AvroToJson
-net.ulukai.kafka.connect.smt.JsonKeyToHeader
+net.ulukai.kafka.connect.smt.AddUuid$Key
+net.ulukai.kafka.connect.smt.AddUuid$Value
+net.ulukai.kafka.connect.smt.AvroToJson$Key
+net.ulukai.kafka.connect.smt.AvroToJson$Value
+net.ulukai.kafka.connect.smt.JsonKeyToHeader$Key
+net.ulukai.kafka.connect.smt.JsonKeyToHeader$Value
