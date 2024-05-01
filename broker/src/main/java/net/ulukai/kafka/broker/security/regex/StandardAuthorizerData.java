@@ -502,10 +502,7 @@ public class StandardAuthorizerData {
     	KafkaPrincipal aclPrincipal = acl.kafkaPrincipal();
     	if (!matchingPrincipals.contains(aclPrincipal)) {
     		logger.debug("aclPrincipal not contained in matchingPrincipals");
-            //return null;
-    		if ( !aclPrincipal.getPrincipalType().equals(REGEX_TYPE_PRINCIPAL) ) {
-    			logger.error("Authorizer does NOT support principal type [{}]", aclPrincipal.getPrincipalType());
-    		}else {
+    		if ( aclPrincipal.getPrincipalType().equals(REGEX_TYPE_PRINCIPAL) ) {
     			logger.debug("Authorizer is testing regex [{}]",aclPrincipal.getName());
     			
     			boolean findMatch = false;
@@ -523,10 +520,16 @@ public class StandardAuthorizerData {
     				}
     			}
     			if ( ! findMatch ) {
-    				//logger.debug("Authorizer didn't find a match in ACL [{}] for matchingPrincipal [{}]", aclPrincipal.toString(), matchingPrincipals.toString());
+    				// remove debug log to avoid many call for nothing on the most happening case
+    				// logger.debug("Authorizer didn't find a match in ACL [{}] for matchingPrincipal [{}]", aclPrincipal.toString(), matchingPrincipals.toString());
     				return null;
     			}
     			logger.debug("Authorizer is happy");
+    		}else {
+    			if ( !aclPrincipal.getPrincipalType().equals(KafkaPrincipal.USER_TYPE) ) {
+        			logger.error("Authorizer does NOT support principal type [{}]", aclPrincipal.getPrincipalType());
+    			}
+    			return null;
     		}
     	}
         // Check if the host matches. If it doesn't, return no result (null).
