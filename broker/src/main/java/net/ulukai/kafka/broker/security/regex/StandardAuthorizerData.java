@@ -74,7 +74,22 @@ public class StandardAuthorizerData {
     /**
      * The principal type string used in ACLs that match a name by regex.
      */
-    public static final String REGEX_TYPE_PRINCIPAL = "Regex";
+    public static final String PRINCIPAL_TYPE_REGEX = "AclRegex";
+
+    /**
+     * The principal type string used in ACLs that match a name by containing a substring.
+     */
+    public static final String PRINCIPAL_TYPE_CONTAINS = "AclContains";
+
+    /**
+     * The principal type string used in ACLs that match a name starting with a substring.
+     */
+    public static final String PRINCIPAL_TYPE_STARTSWITH = "AclStartsWith";
+
+    /**
+     * The principal type string used in ACLs that match a name ending with a substring.
+     */
+    public static final String PRINCIPAL_TYPE_ENDSWITH = "AclEndsWith";
 
     /**
      * The principal entry used in ACLs that match any principal.
@@ -498,14 +513,15 @@ public class StandardAuthorizerData {
                                           String host,
                                           StandardAcl acl) {
 		Logger logger = LoggerFactory.getLogger(StandardAuthorizerData.class);
+		boolean principalMatched = false;
 		// Check if the principal matches. If it doesn't, return no result (null).
     	KafkaPrincipal aclPrincipal = acl.kafkaPrincipal();
-    	if (!matchingPrincipals.contains(aclPrincipal)) {
-    		logger.debug("aclPrincipal not contained in matchingPrincipals");
-    		if ( aclPrincipal.getPrincipalType().equals(REGEX_TYPE_PRINCIPAL) ) {
+    	if ( aclPrincipal.getPrincipalType().equals(KafkaPrincipal.USER_TYPE) ) {
+        	if (matchingPrincipals.contains(aclPrincipal)) {
+        		principalMatched = true;
+        	}
+    	} else if ( aclPrincipal.getPrincipalType().equals(PRINCIPAL_TYPE_REGEX) ) {
     			logger.debug("Authorizer is testing regex [{}]",aclPrincipal.getName());
-    			
-    			boolean findMatch = false;
     			Pattern regexPattern = Pattern.compile(aclPrincipal.getName());
     			Matcher regexMatcher = null;
     			for (KafkaPrincipal mkp : matchingPrincipals) {
@@ -515,24 +531,51 @@ public class StandardAuthorizerData {
     					logger.debug("Authorizer regex does NOT match");
     				}else{
     					logger.debug("Authorizer regex found a match !!!");
-    					findMatch = true;
+    					principalMatched = true;
     					break;
     				}
     			}
-    			if ( ! findMatch ) {
-    				// remove debug log to avoid many call for nothing on the most happening case
-    				// logger.debug("Authorizer didn't find a match in ACL [{}] for matchingPrincipal [{}]", aclPrincipal.toString(), matchingPrincipals.toString());
-    				return null;
-    			}
-    			logger.debug("Authorizer is happy");
-    		}else {
-    			if ( !aclPrincipal.getPrincipalType().equals(KafkaPrincipal.USER_TYPE) ) {
-        			logger.error("Authorizer does NOT support principal type [{}]", aclPrincipal.getPrincipalType());
-    			}
-    			return null;
-    		}
+    	} else if ( aclPrincipal.getPrincipalType().equals(PRINCIPAL_TYPE_CONTAINS) ) {
+			for (KafkaPrincipal mkp : matchingPrincipals) {
+				logger.debug("Authorizer is contain'ing' matchingPrincipal [{}]", mkp.getName());
+				if ( !mkp.getName().contains(aclPrincipal.getName()) ) {
+					logger.debug("Authorizer 'contains' does NOT match");
+				}else{
+					logger.debug("Authorizer 'contains' found a match !!!");
+					principalMatched = true;
+					break;
+				}
+			}
+    	} else if ( aclPrincipal.getPrincipalType().equals(PRINCIPAL_TYPE_STARTSWITH) ) {
+			for (KafkaPrincipal mkp : matchingPrincipals) {
+				logger.debug("Authorizer 'startswith' matchingPrincipal [{}]", mkp.getName());
+				if ( !mkp.getName().startsWith(aclPrincipal.getName()) ) {
+					logger.debug("Authorizer 'startswith' does NOT match");
+				}else{
+					logger.debug("Authorizer 'startswith' found a match !!!");
+					principalMatched = true;
+					break;
+				}
+			}
+    	} else if ( aclPrincipal.getPrincipalType().equals(PRINCIPAL_TYPE_ENDSWITH) ) {
+			for (KafkaPrincipal mkp : matchingPrincipals) {
+				logger.debug("Authorizer is endwith matchingPrincipal [{}]", mkp.getName());
+				if ( !mkp.getName().endsWith(aclPrincipal.getName()) ) {
+					logger.debug("Authorizer endswith does NOT match");
+				}else{
+					logger.debug("Authorizer endswith found a match !!!");
+					principalMatched = true;
+					break;
+				}
+			}
+    	} else {
+			logger.error("Authorizer does NOT support principal type [{}]", aclPrincipal.getPrincipalType());
     	}
-        // Check if the host matches. If it doesn't, return no result (null).
+    	if ( ! principalMatched ) {
+    			return null;
+    	}
+
+    	// Check if the host matches. If it doesn't, return no result (null).
         if (!acl.host().equals(WILDCARD) && !acl.host().equals(host)) {
             return null;
         }
