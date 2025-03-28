@@ -66,30 +66,11 @@ import static org.apache.kafka.server.authorizer.AuthorizationResult.DENIED;
  * The class is not thread-safe.
  */
 public class StandardAuthorizerData {
+	
     /**
      * The host or name string used in ACLs that match any host or name.
      */
     public static final String WILDCARD = "*";
-
-    /**
-     * The principal type string used in ACLs that match a name by regex.
-     */
-    public static final String PRINCIPAL_TYPE_REGEX = "AclRegex";
-
-    /**
-     * The principal type string used in ACLs that match a name by containing a substring.
-     */
-    public static final String PRINCIPAL_TYPE_CONTAINS = "AclContains";
-
-    /**
-     * The principal type string used in ACLs that match a name starting with a substring.
-     */
-    public static final String PRINCIPAL_TYPE_STARTSWITH = "AclStartsWith";
-
-    /**
-     * The principal type string used in ACLs that match a name ending with a substring.
-     */
-    public static final String PRINCIPAL_TYPE_ENDSWITH = "AclEndsWith";
 
     /**
      * The principal entry used in ACLs that match any principal.
@@ -493,7 +474,7 @@ public class StandardAuthorizerData {
         KafkaPrincipal basePrincipal = sessionPrincipal.getClass().equals(KafkaPrincipal.class)
             ? sessionPrincipal
             : new KafkaPrincipal(sessionPrincipal.getPrincipalType(), sessionPrincipal.getName());
-        return Utils.mkSet(basePrincipal, WILDCARD_KAFKA_PRINCIPAL);
+        return Set.of(basePrincipal, WILDCARD_KAFKA_PRINCIPAL);
     }
 
     /**
@@ -520,7 +501,9 @@ public class StandardAuthorizerData {
         	if (matchingPrincipals.contains(aclPrincipal)) {
         		principalMatched = true;
         	}
-    	} else if ( aclPrincipal.getPrincipalType().equals(PRINCIPAL_TYPE_REGEX) ) {
+    	} else if ( AclPrincipalFilterType.aclPrincipalTypeFilter.PRINCIPAL_FILTER_TYPE_REGEX ==
+    				AclPrincipalFilterType.getInstance()
+    					.getAclPrincipalFilterType(aclPrincipal.getPrincipalType()) ) {
     			logger.debug("Authorizer is testing regex [{}]",aclPrincipal.getName());
     			Pattern regexPattern = Pattern.compile(aclPrincipal.getName());
     			Matcher regexMatcher = null;
@@ -535,7 +518,9 @@ public class StandardAuthorizerData {
     					break;
     				}
     			}
-    	} else if ( aclPrincipal.getPrincipalType().equals(PRINCIPAL_TYPE_CONTAINS) ) {
+    	} else if ( AclPrincipalFilterType.aclPrincipalTypeFilter.PRINCIPAL_FILTER_TYPE_CONTAINS ==
+    				AclPrincipalFilterType.getInstance()
+    					.getAclPrincipalFilterType(aclPrincipal.getPrincipalType()) ) {
 			for (KafkaPrincipal mkp : matchingPrincipals) {
 				logger.debug("Authorizer is contain'ing' matchingPrincipal [{}]", mkp.getName());
 				if ( !mkp.getName().contains(aclPrincipal.getName()) ) {
@@ -546,7 +531,9 @@ public class StandardAuthorizerData {
 					break;
 				}
 			}
-    	} else if ( aclPrincipal.getPrincipalType().equals(PRINCIPAL_TYPE_STARTSWITH) ) {
+    	} else if ( AclPrincipalFilterType.aclPrincipalTypeFilter.PRINCIPAL_FILTER_TYPE_STARTSWITH ==
+					AclPrincipalFilterType.getInstance()
+						.getAclPrincipalFilterType(aclPrincipal.getPrincipalType()) ) {
 			for (KafkaPrincipal mkp : matchingPrincipals) {
 				logger.debug("Authorizer 'startswith' matchingPrincipal [{}]", mkp.getName());
 				if ( !mkp.getName().startsWith(aclPrincipal.getName()) ) {
@@ -557,7 +544,9 @@ public class StandardAuthorizerData {
 					break;
 				}
 			}
-    	} else if ( aclPrincipal.getPrincipalType().equals(PRINCIPAL_TYPE_ENDSWITH) ) {
+    	} else if ( AclPrincipalFilterType.aclPrincipalTypeFilter.PRINCIPAL_FILTER_TYPE_ENDSWITH ==
+					AclPrincipalFilterType.getInstance()
+						.getAclPrincipalFilterType(aclPrincipal.getPrincipalType()) ) {
 			for (KafkaPrincipal mkp : matchingPrincipals) {
 				logger.debug("Authorizer is endwith matchingPrincipal [{}]", mkp.getName());
 				if ( !mkp.getName().endsWith(aclPrincipal.getName()) ) {
